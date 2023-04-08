@@ -1,9 +1,13 @@
 package com.m19y.learn.security;
 
 
+import com.m19y.learn.auth.ApplicationUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,9 +39,12 @@ public class AppSecurityConfig {
           "/css/**"
   };
   private final PasswordEncoder passwordEncoder;
+  private final ApplicationUserService applicationUserService;
   @Autowired
-  public AppSecurityConfig(PasswordEncoder passwordEncoder) {
+  public AppSecurityConfig(PasswordEncoder passwordEncoder,
+                           ApplicationUserService applicationUserService) {
     this.passwordEncoder = passwordEncoder;
+    this.applicationUserService = applicationUserService;
   }
 
   @Bean
@@ -74,23 +81,34 @@ public class AppSecurityConfig {
   }
 
   @Bean
-  public UserDetailsService userDetailsService() {
-    UserDetails saya = User.withUsername("saya")
-            .password(passwordEncoder.encode("password"))
-            .authorities(ADMIN.getGrantedAuthorities())
-            .build();
-
-    UserDetails dia = User.withUsername("dia")
-            .password(passwordEncoder.encode("password"))
-            .authorities(STUDENT.getGrantedAuthorities())
-            .build();
-
-    UserDetails kamu = User.withUsername("kamu")
-            .password(passwordEncoder.encode("password"))
-            .authorities(ADMINTRAINEE.getGrantedAuthorities())
-            .build();
-
-
-    return new InMemoryUserDetailsManager(saya, dia, kamu);
+  public AuthenticationProvider daoAuthenticationProvider(){
+    DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+    authProvider.setUserDetailsService(applicationUserService);
+    authProvider.setPasswordEncoder(passwordEncoder);
+    return authProvider;
   }
+
+
+  //  <- sudah tidak dipakai karena menggunakan database ->
+//  @Bean
+//  public UserDetailsService userDetailsService() {
+//    UserDetails saya = User.withUsername("saya")
+//            .password(passwordEncoder.encode("password"))
+//            .authorities(ADMIN.getGrantedAuthorities())
+//            .build();
+//
+//    UserDetails dia = User.withUsername("dia")
+//            .password(passwordEncoder.encode("password"))
+//            .authorities(STUDENT.getGrantedAuthorities())
+//            .build();
+//
+//    UserDetails kamu = User.withUsername("kamu")
+//            .password(passwordEncoder.encode("password"))
+//            .authorities(ADMINTRAINEE.getGrantedAuthorities())
+//            .build();
+//
+//
+//    return new InMemoryUserDetailsManager(saya, dia, kamu);
+//  }
+
 }
