@@ -13,6 +13,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.m19y.learn.role.AppUserRole.*;
 
@@ -22,6 +27,7 @@ import static com.m19y.learn.role.AppUserRole.*;
 public class AppSecurityConfig {
 
   private static final String[] SECURED = {"/api/**"};
+  private static final String[] COOKIES = {"remember-me","JSESSIONID"};
   private static final String[] UNSECURED = {
           "/",
           "/js/**",
@@ -38,19 +44,32 @@ public class AppSecurityConfig {
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
     return http
+            // .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())) // akan selalu minta csrfToke di cookies
             .csrf().disable()
             .authorizeHttpRequests()
             .requestMatchers(UNSECURED).permitAll() // berikan isi (TANPA PASSWORD) dengan url UNSECURED
             .requestMatchers(SECURED).hasRole(STUDENT.name()) // <- role based authentication (singular)
-//            .requestMatchers(HttpMethod.DELETE,"/management/api/**").hasAuthority(COURSE_WRITE.name())
-//            .requestMatchers(HttpMethod.DELETE,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-//            .requestMatchers(HttpMethod.POST,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-//            .requestMatchers(HttpMethod.PUT,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-//            .requestMatchers(HttpMethod.GET,"/management/api/**").hasAnyRole(ADMIN.name(), ADMINTRAINEE.name()) // (plural)
             .anyRequest()
             .authenticated()
             .and()
-            .httpBasic()
+            .formLogin()
+              .loginPage("/login")
+              .permitAll()
+              .defaultSuccessUrl("/courses",true) // setelah selesai login, langsung ke course url
+              .passwordParameter("password")
+              .usernameParameter("username")
+            .and()
+            .rememberMe()// by default akan disimpan selama 30 menit, dengan menggunakan remmemberMe() akan disimpan selama 2 minggu,
+              .tokenValiditySeconds((int) TimeUnit.DAYS.toSeconds(21)) // costome expiration
+              .key("rahasia")// untuk menggenerate md5 hash
+            .and()
+            .logout()
+              .logoutUrl("/logout")
+              .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET")) // kalau csrf disable, harus hapus ini
+              .clearAuthentication(true)
+              .invalidateHttpSession(true)
+              .deleteCookies(COOKIES)
+              .logoutSuccessUrl("/login")
             .and().build();
   }
 
@@ -58,19 +77,16 @@ public class AppSecurityConfig {
   public UserDetailsService userDetailsService() {
     UserDetails saya = User.withUsername("saya")
             .password(passwordEncoder.encode("password"))
-//            .roles(ADMIN.name()) // ROLE_ADMIN
             .authorities(ADMIN.getGrantedAuthorities())
             .build();
 
     UserDetails dia = User.withUsername("dia")
             .password(passwordEncoder.encode("password"))
-//            .roles(STUDENT.name()) // ROLE_STUDENT
             .authorities(STUDENT.getGrantedAuthorities())
             .build();
 
     UserDetails kamu = User.withUsername("kamu")
             .password(passwordEncoder.encode("password"))
-//            .roles(ADMINTRAINEE.name()) // ROLE_ADMINTRAINEE
             .authorities(ADMINTRAINEE.getGrantedAuthorities())
             .build();
 
